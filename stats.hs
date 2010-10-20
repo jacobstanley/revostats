@@ -3,11 +3,12 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 
 import           Data.List hiding (head, span)
-import           Prelude hiding (head, id, div, span)
-import           Text.Blaze.Html4.Strict hiding (map, title)
+import qualified Prelude as P
+import           Prelude hiding (head, id, div, span, (-))
 import qualified Text.Blaze.Html4.Strict as H
+import           Text.Blaze.Html4.Strict hiding (map, title)
 import           Text.Blaze.Html4.Strict.Attributes hiding (name, span, style)
-import           Text.Blaze.Renderer.Pretty (renderHtml)
+import           Text.Blaze.Renderer.String (renderHtml)
 import           Text.Printf
 
 --
@@ -16,30 +17,30 @@ import           Text.Printf
 
 games =
     [ Game 1 Dingoes
-        --         Sh G  A PIM GF GA
-      [ P collopy  8  0  1  0  4  4
-      , P basterA  1  0  0  0  0  0
-      , P emms     3  2  0  2  4  3
-      , P obrien   2  1  0  0  4  4
-      , P yeoh     5  1  2  0  4  4
-      , P diffen   2  0  0  0  2  3
-      , P tng      2  0  0  0  2  2
-        --         SA GA A PIM
-      , G stanley  27 4  0  0
+        --           S  G  A PIM GF GA
+      [ collopy - P  8  0  1  0  4  4
+      , basterA - P  1  0  0  0  0  0
+      , emms    - P  3  2  0  2  4  3
+      , obrien  - P  2  1  0  0  4  4
+      , yeoh    - P  5  1  2  0  4  4
+      , diffen  - P  2  0  0  0  2  3
+      , tng     - P  2  0  0  0  2  2
+      ] --           SA GA A PIM
+      [ stanley - G  27 4  0  0
       ]
 
     , Game 2 Redbacks
-        --         Sh G  A PIM GF GA
-      [ P collopy  2  1  0  0  3  2
-      , P basterA  2  1  1  0  3  2
-      , P emms     0  0  0  0  0  2
-      , P obrien   2  0  0  0  1  2
-      , P mitchell 2  0  0  0  1  2
-      , P yeoh     2  0  0  0  2  0
-      , P diffen   1  0  0  0  3  0
-      , P tng      1  1  0  5  2  0
-        --         SA GA A PIM
-      , G stanley  29 2  0  0
+        --            S  G  A PIM GF GA
+      [ collopy  - P  2  1  0  0  3  2
+      , basterA  - P  2  1  1  0  3  2
+      , emms     - P  0  0  0  0  0  2
+      , obrien   - P  2  0  0  0  1  2
+      , mitchell - P  2  0  0  0  1  2
+      , yeoh     - P  2  0  0  0  2  0
+      , diffen   - P  1  0  0  0  3  0
+      , tng      - P  1  1  0  5  2  0
+      ] --            SA GA A PIM
+      [ stanley  - G  29 2  0  0
       ]
 
     ]
@@ -69,16 +70,27 @@ stanley  = Player 91 "Jacob Stanley"
 -- Data types
 --
 
-data Game = Game Round Opponent [Entry]
+data Game = Game
+    { round    :: Round
+    , opponent :: Opponent
+    , players  :: [(Player, PStat)]
+    , goalies  :: [(Player, GStat)]
+    }
     deriving Show
+
+
+(-) :: Player -> s -> (Player, s)
+(-) = (,)
 
 type Round = Int
 
 data Opponent = Dingoes | Kookaburras | ModDogs | Redbacks | Pirates | PiratesWhite
     deriving Show
 
-data Entry = P Player Shots  Goals  Assists PIM GoalsF GoalsA
-           | G Player ShotsA GoalsA Assists PIM
+data PStat = P Shots  Goals  Assists PIM GoalsF GoalsA
+    deriving Show
+
+data GStat = G ShotsA GoalsA Assists PIM
     deriving Show
 
 type Shots   = Int
@@ -94,7 +106,7 @@ type ShotPct = Double
 type SavePct = Double
 
 data Player = Player { number :: Number, name :: Name }
-    deriving Show
+    deriving (Show, Eq)
 
 type Number = Int
 type Name   = String
@@ -103,34 +115,41 @@ type Name   = String
 -- Magic Voodoo Spells
 --
 
-main = putStrLn $ renderHtml $ html $ do
+main = putStrLn $ renderHtml $ docTypeHtml $ do
     head $ do
         H.title $ "Revolution Sharks Statistics"
-        style ! type_ "text/css" $ string $ intercalate "\n"
-            [ "table   { margin-top: 0.5em; }"
-            , "td, th  { padding: 0 0.5em; }"
-            , ".text   { text-align: left; }"
-            , ".number { text-align: right }"
-            ]
+        style ! type_ "text/css" $ string $ "\n" ++ intercalate "\n" css ++ "\n"
     body $ do
-        h1 $ "Revolution Sharks Statistics"
+        h1 "Revolution Sharks Statistics"
+        h2 "Games"
         mapM_ game games
+        h2 "Players"
+        pre $ string $ show $ xs
+  where
+    css = [ "table   { margin-top: 0.5em; }"
+          , "td, th  { padding: 0 0.5em; }"
+          , ".text   { text-align: left; }"
+          , ".number { text-align: right; }"
+          ]
+
+    xs = map (P.head . players) games
+
 
 game :: Game -> Html
-game (Game rnd opp entries) = do
-    h2 $ string $ "Round " ++ show rnd ++ " (vs " ++ show opp ++ ")"
+game (Game rnd opp ps gs) = do
+    h3 $ string $ "Round " ++ show rnd ++ " (vs " ++ show opp ++ ")"
     table $ do
-        playerHeader
-        playerEntries entries
+        gamePlayerHeader
+        gamePlayerEntries ps
     table $ do
-        goalieHeader
-        goalieEntries entries
+        gameGoalieHeader
+        gameGoalieEntries gs
 --
 -- Player stats
 --
 
-playerHeader :: Html
-playerHeader = tr $ do
+gamePlayerHeader :: Html
+gamePlayerHeader = tr $ do
     ths "#"      "Number"
     ths "Player" "Player"
     thn "G"      "Goals"
@@ -141,10 +160,10 @@ playerHeader = tr $ do
     thn "+/-"    "Plus/Minus"
     thn "PIM"    "Penalties In Minutes"
 
-playerEntries :: [Entry] -> Html
-playerEntries = mapM_ entry
+gamePlayerEntries :: [(Player, PStat)] -> Html
+gamePlayerEntries = mapM_ entry
   where
-    entry (P p s g a pim gf ga) = tr $ do
+    entry (p, P s g a pim gf ga) = tr $ do
         tds (show $ number p)
         tds (name p)
         tdi g
@@ -152,16 +171,15 @@ playerEntries = mapM_ entry
         tdi (g + a)
         tdi s
         tdn $ printf "%.1f" $ shotPct s g
-        tdi (gf - ga)
+        tdi (gf P.- ga)
         tdi pim
-    entry _ = return ()
 
 --
 -- Goalie stats
 --
 
-goalieHeader :: Html
-goalieHeader = tr $ do
+gameGoalieHeader :: Html
+gameGoalieHeader = tr $ do
     ths "#"      "Number"
     ths "Goalie" "Goalie"
     thn "SA"     "Shots Against"
@@ -171,19 +189,18 @@ goalieHeader = tr $ do
     thn "A"      "Assists"
     thn "PIM"    "Penalties In Minutes"
 
-goalieEntries :: [Entry] -> Html
-goalieEntries = mapM_ entry
+gameGoalieEntries :: [(Player, GStat)] -> Html
+gameGoalieEntries = mapM_ entry
   where
-    entry (G p sa ga a pim) = tr $ do
+    entry (p, G sa ga a pim) = tr $ do
         tdi (number p)
         tds (name p)
         tdi sa
         tdi ga
-        tdi (sa - ga)
+        tdi (sa P.- ga)
         tdn $ drop 1 $ printf "%.3f" $ savePct sa ga
         tdi a
         tdi pim
-    entry _ = return ()
 
 --
 -- Helpers
@@ -196,7 +213,7 @@ shotPct s g | s >= g    = 100 * realToFrac g / realToFrac s
 
 savePct :: ShotsA -> GoalsA -> SavePct
 savePct _ 0 = 1
-savePct sa ga | sa >= ga  = realToFrac (sa - ga) / realToFrac sa
+savePct sa ga | sa >= ga  = realToFrac (sa P.- ga) / realToFrac sa
               | otherwise = error ("savePct error: " ++ show ga ++ " goals against > " ++ show sa ++ " shots against")
 
 ths = th' "text"
