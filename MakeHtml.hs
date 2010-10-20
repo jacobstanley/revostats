@@ -6,7 +6,7 @@ import Prelude hiding ((-))
 
 -- Game Statistics
 stats =
-  [ Game 1 Dingoes
+  [ game 1 Dingoes
       --           S  G  A PIM GF GA
     [ collopy - P  8  0  1  0  4  4
     , basterA - P  1  0  0  0  0  0
@@ -19,7 +19,7 @@ stats =
     [ stanley - G  27 4  0  0
     ]
 
-  , Game 2 Redbacks
+  , game 2 Redbacks
       --            S  G  A PIM GF GA
     [ collopy  - P  2  1  0  0  3  2
     , basterA  - P  2  1  1  0  3  2
