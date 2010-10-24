@@ -5,14 +5,16 @@ import           Data.Ord
 import qualified Prelude as P
 import           Prelude hiding ((-))
 
-
+------------------------------------------------------------------------
 -- Types
 
 type Round = Int
 
+-- | The team that played against Sharks
 data Opponent = Dingoes | Kookaburras | ModDogs | Redbacks | Pirates | PiratesWhite
     deriving Show
 
+-- | The round and opponent
 data Game = Game Round Opponent
     deriving Show
 
@@ -28,11 +30,20 @@ data PlayerStats a = PlayerStats Player [(Game, a)]
 data Record a = Record Game Player a
     deriving Show
 
--- | Scoring stats
-data ScoringStat = P Shots  Goals  Assists PIM GoalsF GoalsA
+-- | A player represented by their name & number
+data Player = Player
+    { number :: Number
+    , name :: Name
+    } deriving (Show, Eq, Ord)
+
+type Number = Int
+type Name   = String
+
+-- | Scoring-related stats
+data ScoringStat = P Shots Goals Assists PIM GoalsF GoalsA
     deriving Show
 
--- | Goalie stats
+-- | Goalie-related stats
 data GoalieStat = G ShotsA GoalsA Assists PIM
     deriving Show
 
@@ -48,23 +59,37 @@ type ShotsA  = Int
 type ShotPct = Double
 type SavePct = Double
 
-data Player = Player
-    { number :: Number
-    , name :: Name
-    } deriving (Show, Eq, Ord)
+-- | Create totals from a list of stats
+class Total a where
+    total :: [a] -> a
 
-type Number = Int
-type Name   = String
+instance Total ScoringStat where
+    total = foldl' go (P 0 0 0 0 0 0)
+      where
+        go (P s  g  a  pim  gf  ga)
+           (P s' g' a' pim' gf' ga')
+            =
+            P (s + s') (g + g') (a + a') (pim + pim') (gf + gf') (ga + ga')
 
+instance Total GoalieStat where
+    total = foldl' go (G 0 0 0 0)
+      where
+        go (G s  g  a  pim)
+           (G s' g' a' pim')
+            =
+            G (s + s') (g + g') (a + a') (pim + pim')
 
--- Functions
+------------------------------------------------------------------------
 
+-- | Extracts each player's scoring stats from a list of game stats
 scoringStats :: [GameStats] -> [PlayerStats ScoringStat]
 scoringStats = playerStats scorers
 
+-- | Extracts each player's goalie stats from a list of game stats
 goalieStats :: [GameStats] -> [PlayerStats GoalieStat]
 goalieStats = playerStats goalies
 
+-- | Extracts each player's stats from a list of game stats
 playerStats :: (GameStats -> [(Player, a)]) -> [GameStats] -> [PlayerStats a]
 playerStats f = groupByPlayer . concatMap (denormalize f)
 
@@ -100,11 +125,13 @@ game rnd opp = GameStats (Game rnd opp)
 
 ------------------------------------------------------------------------
 
+-- | Calculates shot percentage given shots taken and goals scored
 shotPct :: Shots -> Goals -> ShotPct
 shotPct _ 0 = 0
 shotPct s g | s >= g    = 100 * realToFrac g / realToFrac s
             | otherwise = error ("shotPct error: " ++ show g ++ " goals > " ++ show s ++ " shots")
 
+-- | Calculates save percentage given shots against and goals against
 savePct :: ShotsA -> GoalsA -> SavePct
 savePct _ 0 = 1
 savePct sa ga | sa >= ga  = realToFrac (sa P.- ga) / realToFrac sa
@@ -112,8 +139,10 @@ savePct sa ga | sa >= ga  = realToFrac (sa P.- ga) / realToFrac sa
 
 ------------------------------------------------------------------------
 
+-- | Sorts a list using the specified key
 sortOn :: Ord b => (a -> b) -> [a] -> [a]
 sortOn = sortBy . comparing
 
+-- | Groups a list using the specified key
 groupOn :: Eq b => (a -> b) -> [a] -> [[a]]
 groupOn f = groupBy (\x y -> f x == f y)

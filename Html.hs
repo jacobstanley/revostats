@@ -3,6 +3,7 @@
 
 module Html (renderHtmlStats) where
 
+import           Control.Monad (forM_)
 import           Data.List hiding (head, span)
 import qualified Prelude as P
 import           Prelude hiding (head, id, div, span)
@@ -15,6 +16,8 @@ import           Text.Printf
 
 import           Floorball hiding ((-))
 
+
+------------------------------------------------------------------------
 
 renderHtmlStats :: [GameStats] -> String
 renderHtmlStats games = renderHtml $ docTypeHtml $ do
@@ -41,11 +44,11 @@ renderGame :: GameStats -> Html
 renderGame (GameStats (Game rnd opp) ps gs) = do
     h3 $ string $ "Round " ++ show rnd ++ " (vs " ++ show opp ++ ")"
     table $ do
-        gameScoringHeader
-        gameScoringRows ps
+        gameHeaders scoringHeaders "Player"
+        gameRows scoringCells ps
     table $ do
-        gameGoalieHeader
-        gameGoalieRows gs
+        gameHeaders goalieHeaders "Goalie"
+        gameRows goalieCells gs
 
 
 renderScorer :: PlayerStats ScoringStat -> Html
@@ -53,8 +56,8 @@ renderScorer (PlayerStats (Player num name) gs) = do
     h3 ! id (stringValue $ show num)
        $ string $ "#" ++ show num ++ " " ++ name
     table $ do
-        playerScoringHeader
-        playerScoringRows gs
+        individualHeaders scoringHeaders
+        individualRows scoringCells gs
 
 
 renderGoalie :: PlayerStats GoalieStat -> Html
@@ -62,45 +65,53 @@ renderGoalie (PlayerStats (Player num name) gs) = do
     h3 ! id (stringValue $ show num)
        $ string $ "#" ++ show num ++ " " ++ name
     table $ do
-        playerGoalieHeader
-        playerGoalieRows gs
+        individualHeaders goalieHeaders
+        individualRows goalieCells gs
 
 
--- Scoring stats
+------------------------------------------------------------------------
+-- Common player stats
 
-gameScoringHeader :: Html
-gameScoringHeader = tr $ do
-    ths "#"      "Number"
-    ths "Player" "Player"
-    scoringHeader
+gameHeaders :: Html -> String -> Html
+gameHeaders otherHeaders name = tr $ do
+    ths "#" "Number"
+    ths (string name) (stringValue name)
+    otherHeaders
 
-gameScoringRows :: [(Player, ScoringStat)] -> Html
-gameScoringRows = mapM_ $ \(Player num name, stat) -> tr $ do
+gameRows :: (a -> Html) -> [(Player, a)] -> Html
+gameRows otherCells = mapM_ $ \(Player num name, stat) -> tr $ do
     tds (show num)
     tda ("#" ++ show num) name
-    scoringCells stat
+    otherCells stat
 
-playerScoringHeader :: Html
-playerScoringHeader = tr $ do
+individualHeaders :: Html -> Html
+individualHeaders otherHeaders = tr $ do
     ths "Rd"  "Round"
     ths "Opp" "Opponent"
-    scoringHeader
+    otherHeaders
 
-playerScoringRows :: [(Game, ScoringStat)] -> Html
-playerScoringRows = mapM_ $ \(Game rnd opp, stat) -> tr $ do
-    tds (show rnd)
-    tds (show opp)
-    scoringCells stat
+individualRows :: Total a => (a -> Html) -> [(Game, a)] -> Html
+individualRows otherCells games = do
+    forM_ games $ \(Game rnd opp, stat) -> tr $ do
+        tds (show rnd)
+        tds (show opp)
+        otherCells stat
+    tr $ do
+        th ! colspan "2" ! class_ "text" $ "Total"
+        otherCells (total $ map snd games)
 
-scoringHeader :: Html
-scoringHeader = do
-    thn "G"      "Goals"
-    thn "A"      "Assists"
-    thn "P"      "Points"
-    thn "S"      "Shots"
-    thn "S%"     "Shot Percentage"
-    thn "+/-"    "Plus/Minus"
-    thn "PIM"    "Penalties In Minutes"
+------------------------------------------------------------------------
+-- Scoring stats
+
+scoringHeaders :: Html
+scoringHeaders = do
+    thn "G"   "Goals"
+    thn "A"   "Assists"
+    thn "P"   "Points"
+    thn "S"   "Shots"
+    thn "S%"  "Shot Percentage"
+    thn "+/-" "Plus/Minus"
+    thn "PIM" "Penalties In Minutes"
 
 scoringCells :: ScoringStat -> Html
 scoringCells (P s g a pim gf ga) = do
@@ -113,40 +124,17 @@ scoringCells (P s g a pim gf ga) = do
     tdi pim
 
 
+------------------------------------------------------------------------
 -- Goalie stats
 
-gameGoalieHeader :: Html
-gameGoalieHeader = tr $ do
-    ths "#"      "Number"
-    ths "Goalie" "Goalie"
-    goalieHeader
-
-gameGoalieRows :: [(Player, GoalieStat)] -> Html
-gameGoalieRows = mapM_ $ \(Player num name, stat) -> tr $ do
-    tds (show num)
-    tda ("#" ++ show num) name
-    goalieCells stat
-
-playerGoalieHeader :: Html
-playerGoalieHeader = tr $ do
-    ths "Rd"  "Round"
-    ths "Opp" "Opponent"
-    goalieHeader
-
-playerGoalieRows :: [(Game, GoalieStat)] -> Html
-playerGoalieRows = mapM_ $ \(Game rnd opp, stat) -> tr $ do
-    tds (show rnd)
-    tds (show opp)
-    goalieCells stat
-
-goalieHeader :: Html
-goalieHeader = do
-    thn "SA"     "Shots Against"
-    thn "GA"     "Goals Against"
-    thn "Sv"     "Saves"
-    thn "Sv%"    "Save Percentage"
-    thn "A"      "Assists"
-    thn "PIM"    "Penalties In Minutes"
+goalieHeaders :: Html
+goalieHeaders = do
+    thn "SA"  "Shots Against"
+    thn "GA"  "Goals Against"
+    thn "Sv"  "Saves"
+    thn "Sv%" "Save Percentage"
+    thn "A"   "Assists"
+    thn "PIM" "Penalties In Minutes"
 
 goalieCells :: GoalieStat -> Html
 goalieCells (G sa ga a pim) = do
@@ -158,6 +146,7 @@ goalieCells (G sa ga a pim) = do
     tdi pim
 
 
+------------------------------------------------------------------------
 -- Helpers
 
 ths = th' "text"
