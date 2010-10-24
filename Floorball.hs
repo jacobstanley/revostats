@@ -15,12 +15,17 @@ data Opponent = Dingoes | Kookaburras | ModDogs | Redbacks | Pirates | PiratesWh
     deriving Show
 
 -- | The round and opponent
-data Game = Game Round Opponent
-    deriving Show
+data Game = Game
+    { _round    :: Round
+    , _opponent :: Opponent
+    } deriving Show
 
 -- | Stats for a team in one game
-data GameStats = GameStats Game [(Player, ScoringStat)] [(Player, GoalieStat)]
-    deriving Show
+data GameStats = GameStats
+    { _game    :: Game
+    , _scorers :: [(Player, ScoringStat)]
+    , _goalies :: [(Player, GoalieStat)]
+    } deriving Show
 
 -- | Stats for one player over a season
 data PlayerStats a = PlayerStats Player [(Game, a)]
@@ -32,8 +37,8 @@ data Record a = Record Game Player a
 
 -- | A player represented by their name & number
 data Player = Player
-    { number :: Number
-    , name :: Name
+    { _number :: Number
+    , _name :: Name
     } deriving (Show, Eq, Ord)
 
 type Number = Int
@@ -83,11 +88,11 @@ instance Total GoalieStat where
 
 -- | Extracts each player's scoring stats from a list of game stats
 scoringStats :: [GameStats] -> [PlayerStats ScoringStat]
-scoringStats = playerStats scorers
+scoringStats = playerStats _scorers
 
 -- | Extracts each player's goalie stats from a list of game stats
 goalieStats :: [GameStats] -> [PlayerStats GoalieStat]
-goalieStats = playerStats goalies
+goalieStats = playerStats _goalies
 
 -- | Extracts each player's stats from a list of game stats
 playerStats :: (GameStats -> [(Player, a)]) -> [GameStats] -> [PlayerStats a]
@@ -105,12 +110,6 @@ denormalize get gs@(GameStats game _ _) = map f (get gs)
     f (player, stat) = Record game player stat
 
 ------------------------------------------------------------------------
-
-scorers :: GameStats -> [(Player, ScoringStat)]
-scorers (GameStats _ xs _) = xs
-
-goalies :: GameStats -> [(Player, GoalieStat)]
-goalies (GameStats _ _ xs) = xs
 
 player :: Record a -> Player
 player (Record _ p _) = p

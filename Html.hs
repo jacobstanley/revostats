@@ -27,7 +27,7 @@ renderHtmlStats games = renderHtml $ docTypeHtml $ do
     body $ do
         h1 "Revolution Sharks Statistics"
         h2 "Games"
-        mapM_ renderGame games
+        mapM_ renderGame $ reverse $ sortOn (_round . _game) games
         h2 "Players"
         mapM_ renderScorer (scoringStats games)
         h2 "Goalies"
