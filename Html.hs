@@ -11,7 +11,8 @@ import qualified Text.Blaze.Html4.Strict as H
 import           Text.Blaze.Html4.Strict hiding (map, title)
 import qualified Text.Blaze.Html4.Strict.Attributes as A
 import           Text.Blaze.Html4.Strict.Attributes hiding (name, span, style)
-import           Text.Blaze.Renderer.String (renderHtml)
+import           Text.Blaze.Renderer.Pretty (renderHtml)
+--import           Text.Blaze.Renderer.String (renderHtml)
 import           Text.Printf
 
 import           Floorball hiding ((-))
